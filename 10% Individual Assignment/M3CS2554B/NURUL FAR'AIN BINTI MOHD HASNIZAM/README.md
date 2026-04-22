@@ -14,58 +14,92 @@
 - client.py : The client.py script that sends a number to the server and displays the result.
 
 # Introduction
-The objective of this individual task is to apply the fundamental concepts of Socket Programming using Python. The project involves building a network-based application called the Square Number Generator. In this application, a Client sends a specific integer to a Server which processes the data to find its square and returns the result back to the Client.
+This project demonstrates a high-performance network application using Python's socket programming to handle large-scale data processing. The system implements a Square Number Generator designed to process 1,000,000 data entries by integrating Concurrent Threading for multiple client connections and Parellel Multiprocessing to distribute workloads across CPU cores. By combining these tecniques, the application ensures maximum computational efficiency and scalability, fulfilling the core requirements of the ITT440 individual task whileshowcasing practical data handling at the Transport Layer.
 
 # Objectives
-1. To understand Client-Server communication mechanisms using TCP (Transmission Control Protocol)
-2. To implement the Python
-   ~~~
-   socket
-   ~~~
-   library for network connectivity
-3. To master data encoding and decoding during transmission.
+- Implement High-Performance Socket Programming
+  - to develop a robust client-server application capable of handling high-volume data transmission via TCP/IP.
+- Demonstrate Corcurrency with Multi-threading
+  - To use threading techniques so the server can accept and manage multiple client connections simultaneously without blocking.
+- Execute Parellel Computing
+  - To utilize multiprocessing to distribute a heavy workload of 1,000,000 data entries across multiple CPU cores for faster calculation.
+- Optimize System Efficiency
+  - To reduce overall processing time and maximize hardware utilization compared to traditional sequantial execution.
+- Analyze Performance Metrics
+  - To monitor and report the exact time taken to process large datasets, proving the effectiveness of parallel and corcurrent techniques.
 
 # System Design
 The system follows a standard Client-Server architecture. We use TCP because it is connection-oriented, ensuring that the data is delivered reliably and in the correct order.
+- Data Volume Specification
+  To fulfil the requirement of processing a large volume of data, the system is designed to :
+  - input : A trigger command from the client.
+  - Process : The Server generates a list of 1,000,000 integers.
+  - Workload : Using multiprocessing. Pool to divide the 1,000,000 integers into chunks based on the number of available CPU cores for parallel squaring calculations.
 
 # Source Code Implementation
 Server Side (server.py)
 ~~~
 import socket
+import threading
+import multiprocessing
+import time
 
-# Setup Server
-# AF_INET refers to the address family (IPv4)
-# SOCK_STREAM refers to the socket type (TCP)
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('127.0.0.1', 65432))
-server_socket.listen(1)
+# Function for Parallel Processing (Parallel Technique)
+def calculate_square_batch(numbers):
+    return [n * n for n in numbers]
 
-print("--- SERVER SQUARE GENERATOR IS RUNNING ---")
-print("Waiting for a connection from the client...")
-
-while True:
-    # Accept connection
-    conn, addr = server_socket.accept()
-    print(f"Client connected from: {addr}")
-    
-    # Receive data from client
-    data = conn.recv(1024).decode()
-    
-    if data:
-        try:
-            # Convert received string to integer
-            number = int(data)
-            result = number * number
-            print(f"Received number: {number}. Sending result: {result}")
+def handle_client(conn, addr):
+    print(f"\n[NEW CONNECTION] {addr} connected.")
+    try:
+        # Wait for command from client
+        command = conn.recv(1024).decode()
+        
+        if command == "START_HEAVY_TASK":
+            total_numbers = 1000000  # One Million Data Points (Large Volume)
+            data = list(range(total_numbers))
             
-            # Send the result back to the client
-            conn.send(str(result).encode())
-        except ValueError:
-            # Error handling for non-integer inputs
-            conn.send("Error: Please enter numbers only!".encode())
+            print(f"[PROCESS] Processing {total_numbers} square numbers for {addr}...")
             
-    # Close the specific connection
-    conn.close()
+            # Divide data into chunks based on CPU Core count (Parallelism)
+            start_time = time.time()
+            num_cores = multiprocessing.cpu_count()
+            chunk_size = total_numbers // num_cores
+            chunks = [data[i:i + chunk_size] for i in range(0, total_numbers, chunk_size)]
+            
+            # Using Multiprocessing Pool for parallel execution
+            with multiprocessing.Pool(processes=num_cores) as pool:
+                pool.map(calculate_square_batch, chunks)
+            
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            # Send result report back to the client
+            response = f"SUCCESS: Generated {total_numbers} square numbers in {duration:.4f} seconds using {num_cores} CPU cores."
+            conn.send(response.encode())
+            print(f"[COMPLETE] Task finished for {addr} in {duration:.4f}s")
+            
+    except Exception as e:
+        print(f"[ERROR] {e}")
+    finally:
+        conn.close()
+
+def start_server():
+    # Setup Server Socket
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(('127.0.0.1', 65432))
+    server.listen(5)
+    print("--- SERVER HIGH-PERFORMANCE SQUARE GENERATOR ACTIVE ---")
+    print("Waiting for client connections...")
+    
+    while True:
+        conn, addr = server.accept()
+        # Using Threading (Concurrent Technique)
+        # Allows the server to accept new clients without waiting for heavy tasks to finish
+        client_thread = threading.Thread(target=handle_client, args=(conn, addr))
+        client_thread.start()
+
+if __name__ == "__main__":
+    start_server()
 ~~~
 
 
@@ -74,23 +108,31 @@ Client Side (client.py)
 ~~~
 import socket
 
-# Setup Client
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def run_client():
+    # Setup Client Socket
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    try:
+        # Connect to the server's IP and Port
+        client_socket.connect(('127.0.0.1', 65432))
+        print("Connected to the High-Performance Server.")
+        
+        # Send command to trigger the large volume task
+        client_socket.send("START_HEAVY_TASK".encode())
+        
+        # Receive the processing report from the server
+        print("Waiting for server to process 1,000,000 data entries...")
+        result = client_socket.recv(1024).decode()
+        print(f"\nSERVER RESPONSE: \n{result}")
+        
+    except ConnectionRefusedError:
+        print("Error: Could not connect to server. Ensure server.py is running.")
+    finally:
+        # Close the connection
+        client_socket.close()
 
-# Connect to the server's IP address and port
-client_socket.connect(('127.0.0.1', 65432))
-
-# Input number
-# Prompt the user to enter a value to be squared
-number = input("Enter a number to be squared: ")
-client_socket.send(number.encode())
-
-# Receive result
-result = client_socket.recv(1024).decode()
-print(f"Result from Server: {result}")
-
-# Close the connection
-client_socket.close()
+if __name__ == "__main__":
+    run_client()
 ~~~
 
 # How to run
@@ -98,11 +140,16 @@ client_socket.close()
    ~~~
    python server.py
    ~~~
+   The server will enter a "Listening" state, waiting for client connections using Multi-threading.
 2. Open a second terminal and run the client :
    ~~~
    python client.py
    ~~~
-3. Enter a number in the client terminal to receive the squared result.
+   The client will establish a TCP connection to server at 127.0.0.1 65432.
+3. Execution and Results
+   - The client automatically sends the START_HEAVY_TASK command.
+   - The server performs Parallel Processing to calculate 1,000,000 square numbers.
+   - Once complete, the server sends a performance report (time and CPU usage) back to the client terminal.
 
 
 # Results and Discussion
@@ -111,7 +158,8 @@ Execution Process
 server.py
 ~~~
 Output:
-<img width="1232" height="868" alt="image" src="https://github.com/user-attachments/assets/3423e54e-dcd5-41d8-961f-adbdcc9e15ec" />
+<img width="1543" height="912" alt="image" src="https://github.com/user-attachments/assets/46b84cde-6397-44d3-b279-8ba3faf1c5d7" />
+
 
 
 Execution Process
@@ -119,10 +167,14 @@ Execution Process
 client.py
 ~~~
 Output:
-<img width="1228" height="792" alt="image" src="https://github.com/user-attachments/assets/b0f27ef6-472b-41f1-b5ec-5cb7d922316e" />
+<img width="1545" height="859" alt="image" src="https://github.com/user-attachments/assets/bab29f7c-62d2-44e3-84e9-dfebe5920088" />
 
+- The system succesfully processed a data set of 1,000,000 numbers.
+  - Total records : 1,000,000
+  - Execution Time (Parallel) : 0.9289 s
+  - CPU Cores Used : 4 Cores
 
 # Conclusion
-This task successfully demonstrates the practical implementation of network communication. By using TCP sockets, the application ensures data integrity. The project has strengthened the understanding of the Transport Layer within the OSI model.
+This project successfully demonstrates a high-performance network application that integrates Multi-threading (Concurrency) and Multiprocessing (Parellelism) to efficiently process a large volume of 1,000,000 square numbers over a TCP/IP connection. By utilizing multiple CPU cores to distribute the mathematical workload, the system significantly enhances computational efficiency and scalability compared to traditional sequential processing, while threading ensures the server remains responsive to multiple simultaneous client connections. This implementation not only fulfils all the tecnical requirements of the ITT440 individual assignment but also strengthens the practical understanding of the Transport Layer within the OSI Model and the optimization of socket programming for high-performance computing tasks.
 
 # Demostration Video

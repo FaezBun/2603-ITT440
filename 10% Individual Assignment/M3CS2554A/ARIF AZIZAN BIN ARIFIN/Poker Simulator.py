@@ -20,10 +20,6 @@ import multiprocessing
 import time
 # tqdm module to create a progress bar for the simulations
 from tqdm import tqdm
-
-#concurrent tech (threading) done
-#parallel tech (multiprocessing) done
-#sequential (benchmarking) done
  
 # Constant data and files
 # Log file to store the results of poker hand from simulations

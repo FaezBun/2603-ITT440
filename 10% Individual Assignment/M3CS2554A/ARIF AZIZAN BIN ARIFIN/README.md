@@ -231,7 +231,11 @@ Performance Comparison:
 
 ## Screenshots
 
-![Single Game Output](Screenshots/single_game_output.png)
+![Single Game Input]
+(Screenshots/single_game_input.png)
+
+![Single Game Output]
+(Screenshots/single_game_output.png)
 
 ## Source Code
 
